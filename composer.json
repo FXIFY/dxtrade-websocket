@@ -1,0 +1,90 @@
+{
+    "name": "fxify/dxtrade-websocket",
+    "description": "Provides websocket command and jobs for the DXTrade integration",
+    "keywords": [
+        "Fxify",
+        "laravel",
+        "dxtrade",
+        "dxtrade-websocket"
+    ],
+    "homepage": "https://github.com/fxify/dxtrade-websocket",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "FXIFY",
+            "email": "help@fxify.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "illuminate/contracts": "^11.0|^12.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.1",
+        "laravel/pint": "^1.0",
+        "nunomaduro/collision": "^8.0",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.7",
+        "pestphp/pest-plugin-arch": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.1",
+        "phpstan/extension-installer": "^1.1",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0"
+    },
+    "suggest": {
+        "ext-swoole": "Required for running the DXTrade websocket client."
+    },
+    "autoload": {
+        "psr-4": {
+            "Fxify\\DxtradeWebsocket\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Fxify\\DxtradeWebsocket\\Tests\\": "tests/",
+            "Fxify\\DxtradeWebsocket\\Tests\\Feature\\": "tests/Feature",
+            "Fxify\\DxtradeWebsocket\\Tests\\Unit\\": "tests/Unit",
+            "Workbench\\App\\": "workbench/app/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": "@composer run prepare",
+        "clear": "@php vendor/bin/testbench package:purge-dxtrade-websocket --ansi",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "build": [
+            "@composer run prepare",
+            "@php vendor/bin/testbench workbench:build --ansi"
+        ],
+        "start": [
+            "Composer\\Config::disableProcessTimeout",
+            "@composer run build",
+            "@php vendor/bin/testbench serve"
+        ],
+        "analyse": "vendor/bin/phpstan analyse",
+        "test": "vendor/bin/pest --parallel --compact",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/pint",
+        "check": [
+            "@format",
+            "@analyse",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Fxify\\DxtradeWebsocket\\DxtradeWebsocketServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
