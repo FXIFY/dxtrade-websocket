@@ -4,27 +4,43 @@ declare(strict_types=1);
 
 namespace Fxify\DxtradeWebsocket\Commands;
 
+use Fxify\DxtradeWebsocket\Actions\TestDxtradeConnection;
+use Fxify\DxtradeWebsocket\Checkers\RunDxtradeWebsocketChecks;
+use Fxify\DxtradeWebsocket\Enums\DxtradeWebsocketChannel;
+use Fxify\DxtradeWebsocket\Output\DxtradeWebsocketCommand;
 use Illuminate\Console\Command;
 
 class DxtradeWebsocketTestCommand extends Command
 {
-    public $signature = 'dxtrade:websocket:test {type}';
+    public $signature = 'dxtrade:websocket:test {channel}';
 
     public $description = 'Tests the DXTrade websocket connection';
 
     public function handle(): int
     {
-        $type = $this->argument('type');
+        app(DxtradeWebsocketCommand::class)->setCommand($this);
 
-        $this->info("Testing DXTrade websocket connection for: {$type}");
-        $this->comment('This is a placeholder command. Implementation pending.');
+        $result = app(RunDxtradeWebsocketChecks::class)->run();
 
-        // TODO: Implement websocket testing logic
-        // - Check configuration
-        // - Verify credentials
-        // - Test connection
-        // - Display connection status
+        if ($result === false) {
+            $this->error('Environment checks failed!');
 
-        return self::SUCCESS;
+            return self::FAILURE;
+        }
+
+        /** @var string $channelArg */
+        $channelArg = $this->argument('channel');
+
+        $channel = DxtradeWebsocketChannel::tryFrom($channelArg);
+
+        if (! $channel) {
+            $this->error('Invalid channel provided! Valid channels: accounts, marketData');
+
+            return self::FAILURE;
+        }
+
+        $success = app(TestDxtradeConnection::class)($channel);
+
+        return $success ? self::SUCCESS : self::FAILURE;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Fxify\DxtradeWebsocket\Output;
 
+use Illuminate\Console\Command;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -11,9 +12,16 @@ class DxtradeWebsocketCommand
 {
     protected OutputInterface $output;
 
+    protected ?Command $command = null;
+
     public function __construct()
     {
         $this->output = new ConsoleOutput();
+    }
+
+    public function setCommand(Command $command): void
+    {
+        $this->command = $command;
     }
 
     /**
@@ -21,7 +29,11 @@ class DxtradeWebsocketCommand
      */
     public function info(string $message): void
     {
-        $this->output->writeln("<info>{$message}</info>");
+        if ($this->command) {
+            $this->command->info($message);
+        } else {
+            $this->output->writeln("<info>{$message}</info>");
+        }
     }
 
     /**
@@ -29,7 +41,11 @@ class DxtradeWebsocketCommand
      */
     public function error(string $message): void
     {
-        $this->output->writeln("<error>{$message}</error>");
+        if ($this->command) {
+            $this->command->error($message);
+        } else {
+            $this->output->writeln("<error>{$message}</error>");
+        }
     }
 
     /**
@@ -37,7 +53,11 @@ class DxtradeWebsocketCommand
      */
     public function comment(string $message): void
     {
-        $this->output->writeln("<comment>{$message}</comment>");
+        if ($this->command) {
+            $this->command->comment($message);
+        } else {
+            $this->output->writeln("<comment>{$message}</comment>");
+        }
     }
 
     /**
@@ -45,6 +65,10 @@ class DxtradeWebsocketCommand
      */
     public function line(string $message): void
     {
-        $this->output->writeln($message);
+        if ($this->command) {
+            $this->command->line($message);
+        } else {
+            $this->output->writeln($message);
+        }
     }
 }

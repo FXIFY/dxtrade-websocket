@@ -11,7 +11,9 @@ use Fxify\DxtradeWebsocket\Contracts\Processors\DxtradeWebsocketEventProcessorCo
 use Fxify\DxtradeWebsocket\Managers\DxtradeWebsocketCoroutineManager;
 use Fxify\DxtradeWebsocket\Output\DxtradeWebsocketCommand;
 use Fxify\DxtradeWebsocket\Processors\DefaultDxtradeWebsocketEventProcessor;
+use Fxify\DxtradeWebsocket\Services\DxtradeSessionManager;
 use Illuminate\Contracts\Support\DeferrableProvider;
+use Illuminate\Http\Client\Factory as HttpFactory;
 
 class DxtradeWebsocketServiceProvider extends ServiceProvider implements DeferrableProvider
 {
@@ -47,6 +49,18 @@ class DxtradeWebsocketServiceProvider extends ServiceProvider implements Deferra
 
             return app($processorClass);
         });
+
+        // Bind session manager
+        $this->app->singleton(DxtradeSessionManager::class, function () {
+            return new DxtradeSessionManager(
+                http: app(HttpFactory::class),
+                baseUrl: config('dxtrade-websocket-api.default.url'),
+                username: config('dxtrade-websocket-api.default.username'),
+                password: config('dxtrade-websocket-api.default.password'),
+                domain: config('dxtrade-websocket-api.default.domain'),
+                sessionTtl: config('dxtrade-websocket-api.session_ttl', 3600),
+            );
+        });
     }
 
     /** @return array<string> */
@@ -56,6 +70,7 @@ class DxtradeWebsocketServiceProvider extends ServiceProvider implements Deferra
             DxtradeWebsocketCoroutineManager::class,
             DxtradeWebsocketCommand::class,
             DxtradeWebsocketEventProcessorContract::class,
+            DxtradeSessionManager::class,
         ];
     }
 }

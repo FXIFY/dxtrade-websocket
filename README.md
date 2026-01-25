@@ -71,16 +71,25 @@ return [
 Add the following to your `.env` file:
 
 ```env
-DXTRADE_WEBSOCKET_URL=wss://your-dxtrade-server/websocket
+# DXTrade API Base URL
+DXTRADE_WEBSOCKET_URL=https://your-dxtrade-server.com
+
+# Authentication (per DXTrade Token Authentication API)
 DXTRADE_WEBSOCKET_USERNAME=your-username
 DXTRADE_WEBSOCKET_PASSWORD=your-password
+DXTRADE_WEBSOCKET_DOMAIN=default
 
-# Subscription settings
+# Session settings
+DXTRADE_WEBSOCKET_SESSION_TTL_SECONDS=3600
+
+# Subscription settings (accounts channel)
 DXTRADE_WEBSOCKET_SUBSCRIBE_ACCOUNTS_ENABLED=true
-DXTRADE_WEBSOCKET_SUBSCRIBE_ORDERS_ENABLED=true
-DXTRADE_WEBSOCKET_SUBSCRIBE_POSITIONS_ENABLED=true
-DXTRADE_WEBSOCKET_SUBSCRIBE_TRADES_ENABLED=true
-DXTRADE_WEBSOCKET_SUBSCRIBE_QUOTES_ENABLED=false
+DXTRADE_WEBSOCKET_SUBSCRIBE_METRICS_ENABLED=true
+DXTRADE_WEBSOCKET_SUBSCRIBE_EVENTS_ENABLED=true
+DXTRADE_WEBSOCKET_SUBSCRIBE_CASH_TRANSFERS_ENABLED=true
+
+# Subscription settings (marketData channel)
+DXTRADE_WEBSOCKET_SUBSCRIBE_INSTRUMENTS_ENABLED=false
 
 # Connection settings
 DXTRADE_WEBSOCKET_RECONNECT_DELAY_SECONDS=1.0
@@ -94,18 +103,30 @@ DXTRADE_WEBSOCKET_HEARTBEAT_INTERVAL_SECONDS=30
 
 ### 3. Run the test command
 
-Test your websocket connection:
+Test your websocket connection for the accounts channel:
 
 ```sh
-php artisan dxtrade:websocket:test default
+php artisan dxtrade:websocket:test accounts
+```
+
+Or for the market data channel:
+
+```sh
+php artisan dxtrade:websocket:test marketData
 ```
 
 ### 4. Start the websocket client
 
-Start listening for events:
+Start listening for events on the accounts channel:
 
 ```sh
-php artisan dxtrade:websocket:start default
+php artisan dxtrade:websocket:start accounts
+```
+
+Or for the market data channel:
+
+```sh
+php artisan dxtrade:websocket:start marketData
 ```
 
 > [!NOTE]
