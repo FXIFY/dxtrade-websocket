@@ -65,6 +65,11 @@ readonly class DxtradePushApiResponse
         return $this->type === 'PingRequest';
     }
 
+    public function isPing(): bool
+    {
+        return $this->type === 'Ping';
+    }
+
     /**
      * Check if this is a subscription response
      */
@@ -73,11 +78,29 @@ readonly class DxtradePushApiResponse
         return str_ends_with($this->type, 'SubscriptionResponse');
     }
 
+    public function isSubscriptionClosed(): bool
+    {
+        return str_ends_with($this->type, 'SubscriptionClosed');
+    }
+
+    public function isRequestError(): bool
+    {
+        return $this->type === 'RequestError';
+    }
+
+    public function isReject(): bool
+    {
+        return str_contains($this->type, 'Reject');
+    }
+
     /**
      * Check if this is an error response
      */
     public function isError(): bool
     {
-        return $this->type === 'Error' || str_contains($this->type, 'Error');
+        return $this->type === 'Error'
+            || str_contains($this->type, 'Error')
+            || $this->isRequestError()
+            || $this->isReject();
     }
 }

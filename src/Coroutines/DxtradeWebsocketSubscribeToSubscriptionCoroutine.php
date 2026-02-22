@@ -8,6 +8,7 @@ use Fxify\DxtradeWebsocket\Clients\DxtradeWebsocketClient;
 use Fxify\DxtradeWebsocket\Concerns\DxtradeWebsocketProvidesCommandOutput;
 use Fxify\DxtradeWebsocket\Data\DxtradePushApiMessage;
 use Fxify\DxtradeWebsocket\Enums\DxtradeWebsocketSubscription;
+use Fxify\DxtradeWebsocket\Services\DxtradePushRequestCorrelationManager;
 
 /**
  * DXTrade Websocket Subscription Coroutine
@@ -25,6 +26,10 @@ class DxtradeWebsocketSubscribeToSubscriptionCoroutine
 {
     use DxtradeWebsocketProvidesCommandOutput;
 
+    public function __construct(
+        private DxtradePushRequestCorrelationManager $requestCorrelationManager,
+    ) {}
+
     public function handle(
         DxtradeWebsocketClient $client,
         DxtradeWebsocketSubscription $subscription,
@@ -40,9 +45,16 @@ class DxtradeWebsocketSubscribeToSubscriptionCoroutine
             payload: $payload,
         );
 
+        $this->requestCorrelationManager->registerSubscriptionRequest(
+            requestId: $message->requestId,
+            requestType: $message->type,
+            subscription: $subscription,
+        );
+
         $sent = $client->push($message->toJson());
 
         if (! $sent) {
+            $this->requestCorrelationManager->unregisterRequest($message->requestId);
             $this->error("Failed to subscribe to {$subscription->value}");
 
             return;

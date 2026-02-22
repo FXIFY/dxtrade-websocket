@@ -28,6 +28,19 @@ return [
             'cash_transfers' => env('DXTRADE_WEBSOCKET_SUBSCRIBE_CASH_TRANSFERS_ENABLED', false), // CashTransfers
             'instruments' => env('DXTRADE_WEBSOCKET_SUBSCRIBE_INSTRUMENTS_ENABLED', false), // InstrumentInfo
         ],
+
+        /**
+         * Optional payloads per subscription request type.
+         * Configure this if your DXTrade setup requires specific fields
+         * (for example account IDs, instrument IDs, or request mode).
+         */
+        'subscription_payloads' => [
+            'accounts' => [],
+            'metrics' => [],
+            'events' => [],
+            'cash_transfers' => [],
+            'instruments' => [],
+        ],
     ],
 
     /**
@@ -53,7 +66,7 @@ return [
      * Heartbeat/ping settings
      */
     'heartbeat' => [
-        'enabled' => env('DXTRADE_WEBSOCKET_HEARTBEAT_ENABLED', true),
+        'enabled' => env('DXTRADE_WEBSOCKET_HEARTBEAT_ENABLED', false),
         'interval' => (int) env('DXTRADE_WEBSOCKET_HEARTBEAT_INTERVAL_SECONDS', 30),
     ],
 

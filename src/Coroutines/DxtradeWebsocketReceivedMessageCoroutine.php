@@ -8,8 +8,10 @@ use Fxify\DxtradeWebsocket\Clients\DxtradeWebsocketClient;
 use Fxify\DxtradeWebsocket\Concerns\DxtradeWebsocketProvidesCommandOutput;
 use Fxify\DxtradeWebsocket\Data\DxtradePushApiMessage;
 use Fxify\DxtradeWebsocket\Data\DxtradePushApiResponse;
+use Fxify\DxtradeWebsocket\Data\DxtradePushRequestContext;
 use Fxify\DxtradeWebsocket\Data\DxtradeWebsocketEventData;
 use Fxify\DxtradeWebsocket\Enums\DxtradeWebsocketEventType;
+use Fxify\DxtradeWebsocket\Services\DxtradePushRequestCorrelationManager;
 use Swoole\WebSocket\Frame;
 use Throwable;
 
@@ -19,6 +21,7 @@ class DxtradeWebsocketReceivedMessageCoroutine
 
     public function __construct(
         private DxtradeWebsocketEventJobCoroutine $eventJobCoroutine,
+        private DxtradePushRequestCorrelationManager $requestCorrelationManager,
     ) {}
 
     public function handle(Frame $frame, DxtradeWebsocketClient $client): void
@@ -44,9 +47,60 @@ class DxtradeWebsocketReceivedMessageCoroutine
                 return;
             }
 
+            // Handle Ping acks
+            if ($response->isPing()) {
+                $this->comment("Ping response received");
+
+                return;
+            }
+
             // Handle subscription responses
             if ($response->isSubscriptionResponse()) {
                 $this->comment("Subscription response received: {$response->type}");
+                $context = $response->requestId
+                    ? $this->requestCorrelationManager->confirmSubscription($response->requestId)
+                    : null;
+                $this->dispatchLifecycleEvent(
+                    type: DxtradeWebsocketEventType::SubscriptionConfirmed,
+                    response: $response,
+                    lifecycle: 'subscription_confirmed',
+                    client: $client,
+                    context: $context,
+                );
+
+                return;
+            }
+
+            // Handle closed subscriptions explicitly (do not treat as data event)
+            if ($response->isSubscriptionClosed()) {
+                $this->error("Subscription closed: {$response->type} - " . json_encode($response->payload));
+                $context = $response->requestId
+                    ? $this->requestCorrelationManager->closeSubscription($response->requestId)
+                    : null;
+                $this->dispatchLifecycleEvent(
+                    type: DxtradeWebsocketEventType::SubscriptionClosed,
+                    response: $response,
+                    lifecycle: 'subscription_closed',
+                    client: $client,
+                    context: $context,
+                );
+
+                return;
+            }
+
+            // Handle request-level rejections explicitly
+            if ($response->isRequestError() || $response->isReject()) {
+                $this->error("Request rejected: {$response->type} - " . json_encode($response->payload));
+                $context = $response->requestId
+                    ? $this->requestCorrelationManager->failRequest($response->requestId)
+                    : null;
+                $this->dispatchLifecycleEvent(
+                    type: DxtradeWebsocketEventType::Error,
+                    response: $response,
+                    lifecycle: 'request_rejected',
+                    client: $client,
+                    context: $context,
+                );
 
                 return;
             }
@@ -54,6 +108,16 @@ class DxtradeWebsocketReceivedMessageCoroutine
             // Handle errors
             if ($response->isError()) {
                 $this->error("Error response: {$response->type} - " . json_encode($response->payload));
+                $context = $response->requestId
+                    ? $this->requestCorrelationManager->failRequest($response->requestId)
+                    : null;
+                $this->dispatchLifecycleEvent(
+                    type: DxtradeWebsocketEventType::Error,
+                    response: $response,
+                    lifecycle: 'error',
+                    client: $client,
+                    context: $context,
+                );
 
                 return;
             }
@@ -100,12 +164,21 @@ class DxtradeWebsocketReceivedMessageCoroutine
             return;
         }
 
-        // Create Ping response message per Push API
-        $pingMessage = DxtradePushApiMessage::create(
-            type: 'Ping',
-            session: $sessionToken,
-            payload: [],
-        );
+        // Create Ping response message per Push API.
+        // If requestId is present, echo it for request correlation.
+        $pingMessage = $response->requestId
+            ? new DxtradePushApiMessage(
+                type: 'Ping',
+                requestId: $response->requestId,
+                timestamp: $response->timestamp ?? (int) (microtime(true) * 1000),
+                session: $sessionToken,
+                payload: [],
+            )
+            : DxtradePushApiMessage::create(
+                type: 'Ping',
+                session: $sessionToken,
+                payload: [],
+            );
 
         $sent = $client->push($pingMessage->toJson());
 
@@ -116,6 +189,33 @@ class DxtradeWebsocketReceivedMessageCoroutine
         }
 
         $this->comment("Ping response sent successfully");
+    }
+
+    private function dispatchLifecycleEvent(
+        DxtradeWebsocketEventType $type,
+        DxtradePushApiResponse $response,
+        string $lifecycle,
+        DxtradeWebsocketClient $client,
+        ?DxtradePushRequestContext $context = null
+    ): void {
+        $payload = [
+            'lifecycle' => $lifecycle,
+            'responseType' => $response->type,
+            'requestId' => $response->requestId,
+            'responsePayload' => $response->payload,
+        ];
+
+        if ($context) {
+            $payload['request'] = $context->toArray();
+        }
+
+        $eventData = new DxtradeWebsocketEventData(
+            type: $type,
+            payload: $payload,
+            timestamp: $response->timestamp ?? (int) (microtime(true) * 1000),
+        );
+
+        $this->eventJobCoroutine->handle($eventData, $client);
     }
 
     /**

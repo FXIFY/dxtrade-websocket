@@ -97,8 +97,105 @@ DXTRADE_WEBSOCKET_MAX_RECONNECT_ATTEMPTS=10
 DXTRADE_WEBSOCKET_MESSAGE_TIMEOUT_SECONDS=60.0
 
 # Heartbeat settings
-DXTRADE_WEBSOCKET_HEARTBEAT_ENABLED=true
+DXTRADE_WEBSOCKET_HEARTBEAT_ENABLED=false
 DXTRADE_WEBSOCKET_HEARTBEAT_INTERVAL_SECONDS=30
+```
+
+You can also provide subscription-specific request payloads (for API setups that require request filters/IDs):
+
+```php
+// config/dxtrade-websocket-api.php
+'default' => [
+    // ...
+    'subscription_payloads' => [
+        'accounts' => ['requestType' => 'snapshotAndSubscribe'],
+        'metrics' => ['requestType' => 'snapshotAndSubscribe'],
+        'events' => ['requestType' => 'snapshotAndSubscribe'],
+        'cash_transfers' => ['requestType' => 'snapshotAndSubscribe'],
+        'instruments' => ['symbols' => ['EURUSD']],
+    ],
+],
+```
+
+The package now correlates Push `requestId` values for subscription flows and emits lifecycle events to your processor:
+- `SubscriptionConfirmed` with `payload.lifecycle = subscription_confirmed`
+- `SubscriptionClosed` with `payload.lifecycle = subscription_closed`
+- `Error` with `payload.lifecycle = request_rejected|error`
+
+Lifecycle payloads include:
+- `requestId`
+- `responseType`
+- `responsePayload`
+- `request` (if matched), containing original `requestType`, `subscription`, and `createdAt`
+
+### Handling lifecycle events in consumer project
+
+In your custom processor, branch first on event `type`, then on `payload.lifecycle` for control flow:
+
+```php
+public function process(array $event): void
+{
+    $type = $event['type'] ?? '';
+    $payload = $event['payload'] ?? [];
+    $lifecycle = $payload['lifecycle'] ?? null;
+
+    match ($type) {
+        'SubscriptionConfirmed' => $this->markSubscriptionReady(
+            requestId: $payload['requestId'] ?? null,
+            subscription: $payload['request']['subscription'] ?? null,
+        ),
+        'SubscriptionClosed' => $this->handleClosedSubscription(
+            requestId: $payload['requestId'] ?? null,
+            reason: $payload['responsePayload'] ?? [],
+        ),
+        'Error' => $this->handleProtocolError(
+            lifecycle: $lifecycle,
+            requestId: $payload['requestId'] ?? null,
+            details: $payload['responsePayload'] ?? [],
+        ),
+        default => $this->handleBusinessEvent($event), // account/metric/event/cash/instrument
+    };
+}
+```
+
+Or use the helper parser from this package:
+
+```php
+use Fxify\DxtradeWebsocket\Support\DxtradeLifecycleEventParser;
+
+public function process(array $event): void
+{
+    $lifecycle = DxtradeLifecycleEventParser::parse($event);
+
+    if ($lifecycle?->isSubscriptionConfirmed()) {
+        // Ready to consume business events for this subscription
+        return;
+    }
+
+    if ($lifecycle?->isSubscriptionClosed()) {
+        // Trigger reconnect/re-subscribe workflow
+        return;
+    }
+
+    if ($lifecycle?->isRequestRejected() || $lifecycle?->isProtocolError()) {
+        // Alert/log; decide retry policy
+        return;
+    }
+
+    // Normal business event
+}
+```
+
+Or use the shorter wrapper:
+
+```php
+use Fxify\DxtradeWebsocket\Support\DxtradeLifecycle;
+
+$lifecycle = DxtradeLifecycle::from($event);
+
+if ($lifecycle?->isSubscriptionClosed()) {
+    // handle closure
+}
 ```
 
 ### 3. Run the test command

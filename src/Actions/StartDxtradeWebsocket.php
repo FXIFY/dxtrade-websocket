@@ -12,6 +12,7 @@ use Fxify\DxtradeWebsocket\Enums\DxtradeWebsocketChannel;
 use Fxify\DxtradeWebsocket\Factories\DxtradeWebsocketClientConnectionFactory;
 use Fxify\DxtradeWebsocket\Listeners\DxtradeWebsocketMessageListener;
 use Fxify\DxtradeWebsocket\Managers\DxtradeWebsocketCoroutineManager;
+use Fxify\DxtradeWebsocket\Services\DxtradePushRequestCorrelationManager;
 use Fxify\DxtradeWebsocket\Timers\DxtradeSessionRenewalTimer;
 use Fxify\DxtradeWebsocket\Timers\DxtradeWebsocketHeartbeatTimer;
 use Swoole\Coroutine;
@@ -30,6 +31,7 @@ class StartDxtradeWebsocket
         private DxtradeWebsocketSubscribeToEnabledSubscriptionsCoroutine $subscribeToEnabledSubscriptionsCoroutine,
         private DxtradeWebsocketHeartbeatTimer $heartbeatTimer,
         private DxtradeSessionRenewalTimer $sessionRenewalTimer,
+        private DxtradePushRequestCorrelationManager $requestCorrelationManager,
     ) {}
 
     public function __invoke(DxtradeWebsocketChannel $channel): void
@@ -72,6 +74,7 @@ class StartDxtradeWebsocket
 
                     Timer::clearAll();
                     $this->coroutineManager->clear();
+                    $this->requestCorrelationManager->clear();
 
                     $this->info('Starting DXTrade websocket client.');
                     $client = $this->clientFactory->make($channel);

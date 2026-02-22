@@ -6,6 +6,7 @@ use Fxify\DxtradeWebsocket\Contracts\Processors\DxtradeWebsocketEventProcessorCo
 use Fxify\DxtradeWebsocket\Managers\DxtradeWebsocketCoroutineManager;
 use Fxify\DxtradeWebsocket\Output\DxtradeWebsocketCommand;
 use Fxify\DxtradeWebsocket\Processors\DefaultDxtradeWebsocketEventProcessor;
+use Fxify\DxtradeWebsocket\Services\DxtradePushRequestCorrelationManager;
 
 it('registers the coroutine manager', function () {
     $manager = app(DxtradeWebsocketCoroutineManager::class);
@@ -17,6 +18,12 @@ it('registers the command output', function () {
     $command = app(DxtradeWebsocketCommand::class);
 
     expect($command)->toBeInstanceOf(DxtradeWebsocketCommand::class);
+});
+
+it('registers the request correlation manager', function () {
+    $manager = app(DxtradePushRequestCorrelationManager::class);
+
+    expect($manager)->toBeInstanceOf(DxtradePushRequestCorrelationManager::class);
 });
 
 it('registers the default event processor', function () {

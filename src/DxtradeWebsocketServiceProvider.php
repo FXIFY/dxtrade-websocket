@@ -11,6 +11,7 @@ use Fxify\DxtradeWebsocket\Contracts\Processors\DxtradeWebsocketEventProcessorCo
 use Fxify\DxtradeWebsocket\Managers\DxtradeWebsocketCoroutineManager;
 use Fxify\DxtradeWebsocket\Output\DxtradeWebsocketCommand;
 use Fxify\DxtradeWebsocket\Processors\DefaultDxtradeWebsocketEventProcessor;
+use Fxify\DxtradeWebsocket\Services\DxtradePushRequestCorrelationManager;
 use Fxify\DxtradeWebsocket\Services\DxtradeSessionManager;
 use Illuminate\Contracts\Support\DeferrableProvider;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -39,6 +40,7 @@ class DxtradeWebsocketServiceProvider extends ServiceProvider implements Deferra
 
         $this->app->scoped(DxtradeWebsocketCoroutineManager::class);
         $this->app->scoped(DxtradeWebsocketCommand::class, fn () => new DxtradeWebsocketCommand());
+        $this->app->singleton(DxtradePushRequestCorrelationManager::class);
 
         $this->app->bind(DxtradeWebsocketEventProcessorContract::class, function () {
             $processorClass = config('dxtrade-websocket-processor.processor');
@@ -70,6 +72,7 @@ class DxtradeWebsocketServiceProvider extends ServiceProvider implements Deferra
             DxtradeWebsocketCoroutineManager::class,
             DxtradeWebsocketCommand::class,
             DxtradeWebsocketEventProcessorContract::class,
+            DxtradePushRequestCorrelationManager::class,
             DxtradeSessionManager::class,
         ];
     }

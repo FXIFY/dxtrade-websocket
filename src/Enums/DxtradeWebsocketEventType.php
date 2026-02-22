@@ -29,6 +29,7 @@ enum DxtradeWebsocketEventType: string
     case Error = 'Error';
     case ConnectionEstablished = 'ConnectionEstablished';
     case SubscriptionConfirmed = 'SubscriptionConfirmed';
+    case SubscriptionClosed = 'SubscriptionClosed';
     case Heartbeat = 'Heartbeat';
 
     public function getLabel(): string
@@ -42,6 +43,7 @@ enum DxtradeWebsocketEventType: string
             self::Error => 'Error',
             self::ConnectionEstablished => 'Connection Established',
             self::SubscriptionConfirmed => 'Subscription Confirmed',
+            self::SubscriptionClosed => 'Subscription Closed',
             self::Heartbeat => 'Heartbeat',
         };
     }

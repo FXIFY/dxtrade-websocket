@@ -6,6 +6,7 @@ namespace Fxify\DxtradeWebsocket\Timers;
 
 use Fxify\DxtradeWebsocket\Clients\DxtradeWebsocketClient;
 use Fxify\DxtradeWebsocket\Concerns\DxtradeWebsocketProvidesCommandOutput;
+use Fxify\DxtradeWebsocket\Data\DxtradePushApiMessage;
 use Swoole\Timer;
 
 class DxtradeWebsocketHeartbeatTimer
@@ -34,10 +35,18 @@ class DxtradeWebsocketHeartbeatTimer
                 return;
             }
 
-            $message = json_encode([
-                'action' => 'ping',
-                'timestamp' => time(),
-            ]);
+            $sessionToken = $client->getSessionToken();
+            if (! $sessionToken) {
+                $this->error("No session token available for heartbeat");
+
+                return;
+            }
+
+            // Push API heartbeat message envelope.
+            $message = DxtradePushApiMessage::create(
+                type: 'Ping',
+                session: $sessionToken,
+            )->toJson();
 
             $sent = $client->push($message);
 

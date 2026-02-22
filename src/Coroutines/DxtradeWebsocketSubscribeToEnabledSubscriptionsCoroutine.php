@@ -45,9 +45,9 @@ class DxtradeWebsocketSubscribeToEnabledSubscriptionsCoroutine
             }
 
             $coroutineId = Coroutine::create(function () use ($client, $subscription, $sessionToken) {
-                // Per Push API, payload can contain subscription-specific data
-                // For now, we'll use empty payload - specific payloads can be added later
-                $this->subscribeToSubscriptionCoroutine->handle($client, $subscription, $sessionToken, []);
+                $payload = $this->getSubscriptionPayload($subscription);
+
+                $this->subscribeToSubscriptionCoroutine->handle($client, $subscription, $sessionToken, $payload);
             });
 
             $this->coroutineManager->register(
@@ -66,5 +66,20 @@ class DxtradeWebsocketSubscribeToEnabledSubscriptionsCoroutine
             DxtradeWebsocketSubscription::CashTransfers => 'cash_transfers',
             DxtradeWebsocketSubscription::InstrumentInfo => 'instruments',
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function getSubscriptionPayload(DxtradeWebsocketSubscription $subscription): array
+    {
+        $configKey = $this->getSubscriptionConfigKey($subscription);
+        $payload = config("dxtrade-websocket-api.default.subscription_payloads.{$configKey}", []);
+
+        if (! is_array($payload)) {
+            $this->error("Invalid payload config for {$subscription->value}; expected array");
+
+            return [];
+        }
+
+        return $payload;
     }
 }
