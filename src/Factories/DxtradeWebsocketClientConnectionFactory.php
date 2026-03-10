@@ -38,12 +38,35 @@ class DxtradeWebsocketClientConnectionFactory
         $format = config('dxtrade-websocket-api.format', 'json');
         $compression = config('dxtrade-websocket-api.compression');
 
-        // Use path from URL if provided, otherwise build from channel with query params
-        $path = $parsedUrl['path'] ?? $channel->getPath($format, $compression);
+        // Direct websocket URLs point to the Push API root. Append the channel-specific path.
+        if (blank($pushSession->pushSessionId)) {
+            $basePath = rtrim($parsedUrl['path'] ?? '', '/');
+            $channelPath = $channel->getBasePath();
 
-        // Add query parameters if they're in the original URL
-        if (isset($parsedUrl['query'])) {
-            $path .= '?' . $parsedUrl['query'];
+            $path = match ($channelPath) {
+                '/' => ($basePath === '' ? '' : $basePath) . '/',
+                default => str_ends_with($basePath, $channelPath)
+                    ? $basePath
+                    : $basePath . $channelPath,
+            };
+        } else {
+            $path = $parsedUrl['path'] ?? $channel->getBasePath();
+        }
+
+        $query = [];
+
+        parse_str($parsedUrl['query'] ?? '', $query);
+
+        if ($format && ! array_key_exists('format', $query)) {
+            $query['format'] = $format;
+        }
+
+        if ($compression && ! array_key_exists('compression', $query)) {
+            $query['compression'] = $compression;
+        }
+
+        if (! empty($query)) {
+            $path .= '?' . http_build_query($query);
         }
 
         $this->info("Connecting to DXTrade websocket: {$pushSession->websocketUrl}");
@@ -59,10 +82,17 @@ class DxtradeWebsocketClientConnectionFactory
         $client->setSessionToken($session->sessionToken);
 
         // Set websocket headers
-        $client->setHeaders([
+        $headers = [
             'User-Agent' => 'DXTrade-Websocket-Client/1.0',
-            'X-Push-Session-Id' => $pushSession->pushSessionId,
-        ]);
+        ];
+
+        if (filled($pushSession->pushSessionId)) {
+            $headers['X-Push-Session-Id'] = $pushSession->pushSessionId;
+        } else {
+            $headers['Authorization'] = "DXAPI {$session->sessionToken}";
+        }
+
+        $client->setHeaders($headers);
 
         // Upgrade to websocket
         $upgraded = $client->upgrade($path);

@@ -7,7 +7,6 @@ namespace Fxify\DxtradeWebsocket\Listeners;
 use Fxify\DxtradeWebsocket\Clients\DxtradeWebsocketClient;
 use Fxify\DxtradeWebsocket\Concerns\DxtradeWebsocketProvidesCommandOutput;
 use Fxify\DxtradeWebsocket\Coroutines\DxtradeWebsocketReceivedMessageCoroutine;
-use Swoole\Coroutine;
 use Swoole\WebSocket\Frame;
 
 class DxtradeWebsocketMessageListener
@@ -30,9 +29,7 @@ class DxtradeWebsocketMessageListener
         }
 
         if ($frame instanceof Frame) {
-            Coroutine::create(function () use ($frame, $client) {
-                $this->receivedMessageCoroutine->handle($frame, $client);
-            });
+            $this->receivedMessageCoroutine->handle($frame, $client);
         }
     }
 }

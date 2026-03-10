@@ -131,16 +131,18 @@ class DxtradeWebsocketReceivedMessageCoroutine
                 return;
             }
 
-            // Create event data from Push API response
-            $eventData = new DxtradeWebsocketEventData(
-                type: $eventType,
-                payload: $response->payload,
-                accountId: $response->payload['accountId'] ?? null,
-                timestamp: $response->timestamp ?? (int) (microtime(true) * 1000),
-            );
+            $timestamp = $this->normalizeTimestamp($response->timestamp);
 
-            // Dispatch to event job coroutine
-            $this->eventJobCoroutine->handle($eventData, $client);
+            foreach ($this->extractEventPayloads($response, $eventType) as $payload) {
+                $eventData = new DxtradeWebsocketEventData(
+                    type: $eventType,
+                    payload: $payload,
+                    accountId: $payload['accountId'] ?? $payload['accountCode'] ?? null,
+                    timestamp: $timestamp,
+                );
+
+                $this->eventJobCoroutine->handle($eventData, $client);
+            }
 
         } catch (Throwable $e) {
             $this->report($e);
@@ -212,7 +214,7 @@ class DxtradeWebsocketReceivedMessageCoroutine
         $eventData = new DxtradeWebsocketEventData(
             type: $type,
             payload: $payload,
-            timestamp: $response->timestamp ?? (int) (microtime(true) * 1000),
+            timestamp: $this->normalizeTimestamp($response->timestamp),
         );
 
         $this->eventJobCoroutine->handle($eventData, $client);
@@ -242,5 +244,98 @@ class DxtradeWebsocketReceivedMessageCoroutine
             str_contains($type, 'Instrument') => DxtradeWebsocketEventType::InstrumentInfo,
             default => DxtradeWebsocketEventType::Error,
         };
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractEventPayloads(
+        DxtradePushApiResponse $response,
+        DxtradeWebsocketEventType $eventType
+    ): array {
+        return match ($eventType) {
+            DxtradeWebsocketEventType::AccountPortfolio => $this->extractCollectionPayloadItems($response->payload, 'portfolios'),
+            DxtradeWebsocketEventType::AccountMetric => $this->extractCollectionPayloadItems($response->payload, 'metrics'),
+            DxtradeWebsocketEventType::AccountEvent => $this->extractCollectionPayloadItems($response->payload, 'accountEvents'),
+            DxtradeWebsocketEventType::CashTransfer => $this->extractCollectionPayloadItems($response->payload, 'cashTransfers'),
+            DxtradeWebsocketEventType::InstrumentInfo => $this->extractCollectionPayloadItems($response->payload, 'instruments'),
+            default => [$this->normalizeEventPayload($response->payload)],
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractCollectionPayloadItems(array $payload, string $collectionKey): array
+    {
+        $items = $payload[$collectionKey] ?? null;
+
+        if (! is_array($items)) {
+            return [$this->normalizeEventPayload($payload)];
+        }
+
+        $normalizedItems = [];
+
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                $normalizedItems[] = $this->normalizeEventPayload($item);
+            }
+        }
+
+        return $normalizedItems;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeEventPayload(array $payload): array
+    {
+        $account = $payload['account'] ?? null;
+
+        if (
+            ! isset($payload['accountCode'])
+            && is_string($account)
+            && $account !== ''
+        ) {
+            $parts = explode(':', $account, 2);
+
+            $payload['clearingCode'] = $payload['clearingCode'] ?? ($parts[0] ?? null);
+            $payload['accountCode'] = $parts[1] ?? $parts[0] ?? null;
+        }
+
+        $ownerLogin = $payload['owner']['login'] ?? null;
+
+        if (! isset($payload['accountCode']) && is_string($ownerLogin) && $ownerLogin !== '') {
+            $payload['accountCode'] = $ownerLogin;
+        }
+
+        if (! isset($payload['accountId']) && is_string($payload['accountCode'] ?? null)) {
+            $payload['accountId'] = $payload['accountCode'];
+        }
+
+        return $payload;
+    }
+
+    private function normalizeTimestamp(int|string|null $timestamp): int
+    {
+        if (is_int($timestamp)) {
+            return $timestamp;
+        }
+
+        if (is_numeric($timestamp)) {
+            return (int) $timestamp;
+        }
+
+        if (is_string($timestamp) && filled($timestamp)) {
+            $parsed = strtotime($timestamp);
+
+            if ($parsed !== false) {
+                return $parsed * 1000;
+            }
+        }
+
+        return (int) (microtime(true) * 1000);
     }
 }

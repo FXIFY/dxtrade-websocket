@@ -11,11 +11,21 @@ return [
     'default' => [
         'url' => (string) env('DXTRADE_WEBSOCKET_URL'),
 
+        'auth_url' => (string) env('DXTRADE_WEBSOCKET_AUTH_URL', env('DXTRADE_WEBSOCKET_URL')),
+
+        'push_session_url' => (string) env('DXTRADE_WEBSOCKET_PUSH_SESSION_URL', env('DXTRADE_WEBSOCKET_URL')),
+
+        'websocket_url' => (string) env('DXTRADE_WEBSOCKET_DIRECT_URL', env('DXTRADE_WEBSOCKET_URL')),
+
+        'connection_mode' => (string) env('DXTRADE_WEBSOCKET_CONNECTION_MODE', 'push_session'),
+
         'username' => (string) env('DXTRADE_WEBSOCKET_USERNAME'),
 
         'password' => (string) env('DXTRADE_WEBSOCKET_PASSWORD'),
 
         'domain' => (string) env('DXTRADE_WEBSOCKET_DOMAIN', 'default'),
+
+        'clearing_code' => (string) env('DXTRADE_WEBSOCKET_CLEARING_CODE', env('DXTRADE_WEBSOCKET_DOMAIN', 'default')),
 
         /**
          * Configure which subscriptions to enable
@@ -75,4 +85,10 @@ return [
      */
     'format' => env('DXTRADE_WEBSOCKET_FORMAT', 'json'), // json or xml
     'compression' => env('DXTRADE_WEBSOCKET_COMPRESSION', null), // null or 'gzip'
+
+    /**
+     * Timestamp format for outbound websocket messages.
+     * Supported values: unix_ms, iso8601
+     */
+    'timestamp_format' => env('DXTRADE_WEBSOCKET_TIMESTAMP_FORMAT', 'unix_ms'),
 ];

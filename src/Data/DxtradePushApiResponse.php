@@ -24,7 +24,7 @@ readonly class DxtradePushApiResponse
     public function __construct(
         public string $type,
         public ?string $requestId = null,
-        public ?int $timestamp = null,
+        public int|string|null $timestamp = null,
         public ?string $session = null,
         public array $payload = [],
     ) {}

@@ -29,6 +29,10 @@ class DxtradeSessionManager
     public function __construct(
         private readonly Http $http,
         private readonly string $baseUrl,
+        private readonly ?string $authUrl,
+        private readonly ?string $pushSessionUrl,
+        private readonly ?string $websocketUrl,
+        private readonly string $connectionMode,
         private readonly string $username,
         private readonly string $password,
         private readonly string $domain,
@@ -56,7 +60,7 @@ class DxtradeSessionManager
     public function login(): DxtradeSessionData
     {
         $response = $this->http
-            ->baseUrl($this->baseUrl)
+            ->baseUrl($this->getAuthBaseUrl())
             ->post('/login', [
                 'username' => $this->username,
                 'domain' => $this->domain,
@@ -98,7 +102,7 @@ class DxtradeSessionManager
         $session = $this->getSession();
 
         $response = $this->http
-            ->baseUrl($this->baseUrl)
+            ->baseUrl($this->getAuthBaseUrl())
             ->withHeaders([
                 'Authorization' => "DXAPI {$session->sessionToken}",
             ])
@@ -139,7 +143,7 @@ class DxtradeSessionManager
         }
 
         $response = $this->http
-            ->baseUrl($this->baseUrl)
+            ->baseUrl($this->getAuthBaseUrl())
             ->withHeaders([
                 'Authorization' => "DXAPI {$this->currentSession->sessionToken}",
             ])
@@ -160,8 +164,12 @@ class DxtradeSessionManager
     {
         $session = $this->getSession();
 
+        if ($this->usesDirectWebsocketConnection()) {
+            return $this->buildDirectWebsocketSession();
+        }
+
         $response = $this->http
-            ->baseUrl($this->baseUrl)
+            ->baseUrl($this->getPushSessionBaseUrl())
             ->withHeaders([
                 'Authorization' => "DXAPI {$session->sessionToken}",
             ])
@@ -209,5 +217,42 @@ class DxtradeSessionManager
     private function getSessionCacheKey(): string
     {
         return "dxtrade:session:{$this->username}";
+    }
+
+    public function usesDirectWebsocketConnection(): bool
+    {
+        return $this->connectionMode === 'direct';
+    }
+
+    private function getAuthBaseUrl(): string
+    {
+        return $this->authUrl ?: $this->baseUrl;
+    }
+
+    private function getPushSessionBaseUrl(): string
+    {
+        return $this->pushSessionUrl ?: $this->baseUrl;
+    }
+
+    private function getDirectWebsocketUrl(): string
+    {
+        $url = $this->websocketUrl ?: $this->getAuthBaseUrl();
+
+        return match (true) {
+            str_starts_with($url, 'https://') => 'wss://' . substr($url, 8),
+            str_starts_with($url, 'http://') => 'ws://' . substr($url, 7),
+            default => $url,
+        };
+    }
+
+    private function buildDirectWebsocketSession(): DxtradePushSessionData
+    {
+        $this->currentPushSession = new DxtradePushSessionData(
+            pushSessionId: '',
+            websocketUrl: $this->getDirectWebsocketUrl(),
+            expiresAt: time() + $this->sessionTtl,
+        );
+
+        return $this->currentPushSession;
     }
 }

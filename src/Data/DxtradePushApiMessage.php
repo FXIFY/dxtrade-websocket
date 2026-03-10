@@ -24,7 +24,7 @@ readonly class DxtradePushApiMessage
     public function __construct(
         public string $type,
         public string $requestId,
-        public int $timestamp,
+        public int|string $timestamp,
         public string $session,
         public array $payload = [],
     ) {}
@@ -59,10 +59,18 @@ readonly class DxtradePushApiMessage
         return new self(
             type: $type,
             requestId: self::generateRequestId(),
-            timestamp: (int) (microtime(true) * 1000), // milliseconds since epoch
+            timestamp: self::generateTimestamp(),
             session: $session,
             payload: $payload,
         );
+    }
+
+    private static function generateTimestamp(): int|string
+    {
+        return match (config('dxtrade-websocket-api.timestamp_format', 'unix_ms')) {
+            'iso8601' => now()->utc()->format('Y-m-d\TH:i:s.v\Z'),
+            default => (int) (microtime(true) * 1000),
+        };
     }
 
     private static function generateRequestId(): string

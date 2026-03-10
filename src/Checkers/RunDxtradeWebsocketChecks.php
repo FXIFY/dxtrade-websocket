@@ -24,14 +24,16 @@ class RunDxtradeWebsocketChecks
         $this->info('✓ Swoole extension is loaded');
 
         // Check configuration
-        $baseUrl = config('dxtrade-websocket-api.default.url');
-        if (empty($baseUrl)) {
-            $this->error('DXTRADE_WEBSOCKET_URL is not configured');
+        $authUrl = config('dxtrade-websocket-api.default.auth_url')
+            ?: config('dxtrade-websocket-api.default.url');
+
+        if (empty($authUrl)) {
+            $this->error('DXTRADE_WEBSOCKET_URL or DXTRADE_WEBSOCKET_AUTH_URL is not configured');
 
             return false;
         }
 
-        $this->info("✓ Base URL configured: {$baseUrl}");
+        $this->info("✓ Auth URL configured: {$authUrl}");
 
         $username = config('dxtrade-websocket-api.default.username');
         if (empty($username)) {

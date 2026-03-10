@@ -57,6 +57,10 @@ class DxtradeWebsocketServiceProvider extends ServiceProvider implements Deferra
             return new DxtradeSessionManager(
                 http: app(HttpFactory::class),
                 baseUrl: config('dxtrade-websocket-api.default.url'),
+                authUrl: config('dxtrade-websocket-api.default.auth_url'),
+                pushSessionUrl: config('dxtrade-websocket-api.default.push_session_url'),
+                websocketUrl: config('dxtrade-websocket-api.default.websocket_url'),
+                connectionMode: config('dxtrade-websocket-api.default.connection_mode', 'push_session'),
                 username: config('dxtrade-websocket-api.default.username'),
                 password: config('dxtrade-websocket-api.default.password'),
                 domain: config('dxtrade-websocket-api.default.domain'),

@@ -36,13 +36,14 @@ class StartDxtradeWebsocket
 
     public function __invoke(DxtradeWebsocketChannel $channel): void
     {
-        $reconnectDelaySeconds = config()->float('dxtrade-websocket-api.reconnect_delay', 1.0);
-        $maxReconnectAttempts = config()->int('dxtrade-websocket-api.max_reconnect_attempts', 10);
+        $reconnectDelaySeconds = (float) config('dxtrade-websocket-api.reconnect_delay', 1.0);
+        $maxReconnectAttempts = (int) config('dxtrade-websocket-api.max_reconnect_attempts', 10);
 
         Coroutine\run(function () use ($channel, $reconnectDelaySeconds, $maxReconnectAttempts) {
             /** @var DxtradeWebsocketClient|null $client */
             $client = null;
             $attemptCount = 0;
+            $connectionInitialized = false;
 
             // Start session renewal timer
             $this->sessionRenewalTimer->start();
@@ -51,14 +52,19 @@ class StartDxtradeWebsocket
                 /** @phpstan-ignore-next-line */
                 while (true) {
                     if ($client?->isConnected()) {
-                        $this->heartbeatTimer->start($client);
-                        $this->subscribeToEnabledSubscriptionsCoroutine->start($client);
+                        if (! $connectionInitialized) {
+                            $this->heartbeatTimer->start($client);
+                            $this->subscribeToEnabledSubscriptionsCoroutine->start($client);
+                            $connectionInitialized = true;
+                        }
+
                         $this->messageListener->handle($client);
 
                         continue;
                     }
 
                     $client?->close();
+                    $connectionInitialized = false;
 
                     // Check max reconnect attempts
                     if ($attemptCount >= $maxReconnectAttempts) {
